@@ -13,12 +13,13 @@ Accuracy is not a meaningful metric here. A model that predicts "Not Fraud" for 
 ## Approach
 
 1. Exploratory data analysis: class distribution, transaction amount and time patterns, correlation with the target.
-2. Preprocessing: null and duplicate checks, log-transform and scaling of Amount and Time, stratified train/test split.
-3. Class imbalance handling: class weighting, SMOTE, and undersampling, compared against each other.
+2. Preprocessing: null and duplicate checks, log-transform and scaling of Amount and Time (required for Logistic Regression and KNN), stratified 70/30 train/test split. Duplicate rows were deliberately not dropped, since a portion of them are fraud cases and removing them would shrink an already small minority class.
+3. Class imbalance handling: class weighting, SMOTE, undersampling, and ADASYN.
 4. Models trained: Logistic Regression, Decision Tree, Random Forest, XGBoost, KNN, Naive Bayes.
-5. Evaluation using Precision, Recall, F1-score, and confusion matrices rather than accuracy alone.
-6. Threshold tuning on the final model to adjust the precision-recall tradeoff.
-7. Feature importance analysis.
+5. Evaluation using Precision, Recall, F1, F2, and confusion matrices rather than accuracy alone. F2 is reported alongside F1 since it weights recall more heavily, matching the project's priority of catching fraud over minimizing false alarms.
+6. Overfitting checks via train/test performance comparison for every tree-based model.
+7. Threshold tuning on the final model to adjust the precision-recall tradeoff.
+8. Error analysis on false negatives: comparing feature patterns between missed fraud cases and correctly caught fraud cases.
 
 ## Results
 
@@ -29,13 +30,15 @@ Accuracy is not a meaningful metric here. A model that predicts "Not Fraud" for 
 | Logistic Regression + SMOTE | 0.06 | 0.86 | 0.11 | 0.9760 |
 | XGBoost | 0.95 | 0.71 | 0.81 | 0.9994 |
 | Decision Tree | 0.86 | 0.71 | 0.78 | 0.9993 |
-| Random Forest | 0.95 | 0.76 | 0.84 | 0.9995 |
+| Random Forest (default threshold) | 0.95 | 0.76 | 0.84 | 0.9995 |
 | KNN | 0.91 | 0.70 | 0.79 | 0.9994 |
 | Naive Bayes | 0.06 | 0.80 | 0.11 | 0.9780 |
 
 Aggressive rebalancing methods (SMOTE, undersampling, Naive Bayes) achieve high recall but collapse to a precision of about 0.06, meaning roughly 94% of their fraud alerts are false alarms. These are not usable in practice despite the high recall.
 
-**Final model: Random Forest.** It achieves the best F1-score (0.84) with high precision (0.95), solid recall (0.76), and a small train-test performance gap, indicating good generalization rather than overfitting.
+A hyperparameter search (RandomizedSearchCV) was also run on XGBoost. It reached a slightly higher test F1 (0.83) and F2 (0.81), but showed a large train-test performance gap (train F1 of 1.00 versus test F1 of 0.83), indicating overfitting. This result was excluded from final model selection for that reason, and is noted here as a check performed rather than a result relied on.
+
+**Final model: Random Forest, evaluated at a tuned threshold of 0.2** (rather than the default 0.5). Random Forest was chosen over XGBoost for its better precision-recall balance and a smaller, more consistent train-test gap across every threshold tested.
 
 ### Threshold Tuning
 
@@ -49,7 +52,13 @@ The default classification threshold of 0.5 was compared against alternative thr
 | 0.5 (default) | 0.95 | 0.76 | 0.84 |
 | 0.6 | 0.98 | 0.69 | 0.81 |
 
-Since missing a fraudulent transaction is generally costlier than a false alarm, a threshold of 0.2 was selected for deployment. This improves recall from 0.76 to 0.82 at a moderate precision cost (0.95 to 0.77).
+Since missing a fraudulent transaction is generally costlier than a false alarm, F2 (which weights recall more heavily than F1) was used as the deciding metric rather than F1. A threshold of 0.2 was selected, giving an F2-score of 0.81 on the test set versus 0.79 at the default threshold. This improves recall from 0.76 to 0.82 at a moderate precision cost (0.95 to 0.77).
+
+Train-set performance at the same threshold (precision 0.86, recall 0.85, F1 0.86, F2 0.85) is close to the test-set result, confirming the model generalizes well rather than overfitting to the training data.
+
+### Additional Experiments
+
+Undersampling and ADASYN were also tested as alternative imbalance-handling strategies. Both showed the same pattern as SMOTE: high recall but impractically low precision, and were not selected for the final model. A false-negative analysis was also performed, comparing feature averages between missed fraud cases and correctly identified fraud cases, to understand what the model consistently struggles to detect.
 
 ## Limitations
 
