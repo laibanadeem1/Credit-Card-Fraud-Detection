@@ -17,14 +17,14 @@ model, scaler = load_model_and_scaler()
 REQUIRED_COLUMNS = [f"V{i}" for i in range(1, 29)] + ["Time", "Amount"]
 
 # ---------- UI ----------
-st.title("Credit Card Fraud Screening")
+st.title("Credit Card Fraud Detection")
 st.write(
     "This demo uses a Random Forest model trained on the "
     "[Credit Card Fraud Detection dataset](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud) "
     "to screen credit card transactions for fraud."
 )
 
-tab_single, tab_batch = st.tabs(["Generate Sample Transaction", "Upload a CSV File"])
+tab_single, tab_batch = st.tabs(["Evaluate Transaction", "Upload a CSV File"])
 
 # =========================================================
 # TAB 1 — Single sample transaction, quick demo
@@ -48,11 +48,11 @@ with tab_single:
     else:
         st.write("Click below to pull a random real transaction from the dataset, then check the model's prediction.")
 
-        if st.button("Generate Sample Transaction"):
+        if st.button("Evaluate Transaction"):
             row = full_df.sample(1)
             st.session_state["single_row"] = row
             st.session_state["single_row_id"] = int(row.index[0])
-            st.session_state.pop("single_prediction", None)  # clear old prediction on new sample
+            st.session_state.pop("single_prediction", None)  #clear old prediction on new sample
 
         if "single_row" in st.session_state:
             row = st.session_state["single_row"]
@@ -108,7 +108,7 @@ with tab_single:
                 else:
                     st.error("Incorrect prediction.")
         else:
-            st.info("Click \"Generate Sample Transaction\" to get started.")
+            st.info("Click \"Evaluate Transaction\" to get started.")
 
 # =========================================================
 # TAB 2 — Batch CSV upload

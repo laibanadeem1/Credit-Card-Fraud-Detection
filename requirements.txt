@@ -5,3 +5,5 @@ seaborn
 scikit-learn
 xgboost
 imbalanced-learn
+streamlit
+joblib

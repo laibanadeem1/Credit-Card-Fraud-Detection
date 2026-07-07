@@ -58,7 +58,9 @@ Train-set performance at the same threshold (precision 0.86, recall 0.85, F1 0.8
 
 ### Additional Experiments
 
-Undersampling and ADASYN were also tested as alternative imbalance-handling strategies. Both showed the same pattern as SMOTE: high recall but impractically low precision, and were not selected for the final model. A false-negative analysis was also performed, comparing feature averages between missed fraud cases and correctly identified fraud cases, to understand what the model consistently struggles to detect.
+Undersampling and ADASYN were also tested as alternative imbalance-handling strategies. Both showed the same pattern as SMOTE: high recall but impractically low precision, and were not selected for the final model. 
+
+Error analysis of false negatives revealed that missed fraud cases are not near-miss transactions — the model assigns them very low fraud probability with high confidence. Comparing feature values between correctly caught fraud and missed fraud showed that missed cases lack the extreme values in key PCA components (V17, V14, V12, V10) that characterize easily detected fraud, suggesting these represent a distinct, subtler fraud pattern. Attempting to address this with ADASYN, which generates synthetic examples targeting hard-to-classify minority cases, did not improve results — precision dropped from 0.77 to 0.65 with no meaningful recall gain, suggesting these false negatives are not resolvable through resampling alone and may require additional features beyond what this anonymized dataset provides.
 
 ## Limitations
 
