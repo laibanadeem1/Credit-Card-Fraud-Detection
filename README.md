@@ -13,8 +13,8 @@ Accuracy is not a meaningful metric here. A model that predicts "Not Fraud" for 
 ## Approach
 
 1. Exploratory data analysis: class distribution, transaction amount and time patterns, correlation with the target.
-2. Preprocessing: null and duplicate checks, log-transform and scaling of Amount and Time (required for Logistic Regression and KNN), stratified 70/30 train/test split. Duplicate rows were deliberately not dropped, since a portion of them are fraud cases and removing them would shrink an already small minority class.
-3. Class imbalance handling: class weighting, SMOTE, undersampling, and ADASYN.
+2. Preprocessing: null and duplicate checks, log-transform and scaling of Amount and Time, an engineered Hour-of-day feature derived from Time, stratified 70/30 train/test split. Duplicate rows were deliberately not dropped, since a portion of them are fraud cases and removing them would shrink an already small minority class.
+3. Class imbalance handling: class weighting, SMOTE, undersampling, and ADASYN, compared against each other.
 4. Models trained: Logistic Regression, Decision Tree, Random Forest, XGBoost, KNN, Naive Bayes.
 5. Evaluation using Precision, Recall, F1, F2, and confusion matrices rather than accuracy alone. F2 is reported alongside F1 since it weights recall more heavily, matching the project's priority of catching fraud over minimizing false alarms.
 6. Overfitting checks via train/test performance comparison for every tree-based model.
@@ -44,15 +44,15 @@ A hyperparameter search (RandomizedSearchCV) was also run on XGBoost. It reached
 
 The default classification threshold of 0.5 was compared against alternative thresholds:
 
-| Threshold | Precision | Recall | F1 |
-|---|---|---|---|
-| 0.2 | 0.77 | 0.82 | 0.79 |
-| 0.3 | 0.83 | 0.80 | 0.82 |
-| 0.4 | 0.90 | 0.77 | 0.83 |
-| 0.5 (default) | 0.95 | 0.76 | 0.84 |
-| 0.6 | 0.98 | 0.69 | 0.81 |
+| Threshold | Precision | Recall | F1 | F2 |
+|---|---|---|---|---|
+| 0.2 | 0.77 | 0.82 | 0.79 | 0.81 |
+| 0.3 | 0.83 | 0.80 | 0.82 | 0.81 |
+| 0.4 | 0.90 | 0.77 | 0.83 | 0.79 |
+| 0.5 (default) | 0.95 | 0.76 | 0.84 | 0.79 |
+| 0.6 | 0.98 | 0.69 | 0.81 | 0.73 |
 
-Since missing a fraudulent transaction is generally costlier than a false alarm, F2 (which weights recall more heavily than F1) was used as the deciding metric rather than F1. A threshold of 0.2 was selected, giving an F2-score of 0.81 on the test set versus 0.79 at the default threshold. This improves recall from 0.76 to 0.82 at a moderate precision cost (0.95 to 0.77).
+Since missing a fraudulent transaction is generally costlier than a false alarm, F2 (which weights recall more heavily than F1) was used as the deciding metric rather than F1. Threshold 0.2 gives the highest F2-score (0.81), narrowly ahead of 0.3 (0.81, rounding to the same value but slightly lower before rounding), and was selected on that basis. This improves recall from 0.76 to 0.82 relative to the default threshold, at a moderate precision cost (0.95 to 0.77).
 
 Train-set performance at the same threshold (precision 0.86, recall 0.85, F1 0.86, F2 0.85) is close to the test-set result, confirming the model generalizes well rather than overfitting to the training data.
 
@@ -62,7 +62,7 @@ Undersampling and ADASYN were also tested as alternative imbalance-handling stra
 
 ## Limitations
 
-- Features V1 to V28 are anonymized PCA components, which limits interpretability of what specifically drives a fraud prediction.
+- Features V1 to V28 are anonymized PCA components, which limits interpretability of what specifically drives a fraud prediction. The final model uses 31 features in total: V1-V28, an engineered Hour-of-day feature, and scaled versions of Amount and Time.
 - The dataset covers only two days of transactions from 2013 European cardholders. Patterns may not generalize to other time periods or regions.
 
 ## Project Structure
