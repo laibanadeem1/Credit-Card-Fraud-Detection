@@ -13,69 +13,76 @@ Accuracy is not a meaningful metric here. A model that predicts "Not Fraud" for 
 ## Approach
 
 1. Exploratory data analysis: class distribution, transaction amount and time patterns, correlation with the target.
-2. Preprocessing: null and duplicate checks, log-transform and scaling of Amount and Time, an engineered Hour-of-day feature derived from Time, stratified 70/30 train/test split. Duplicate rows were deliberately not dropped, since a portion of them are fraud cases and removing them would shrink an already small minority class.
-3. Class imbalance handling: class weighting, SMOTE, undersampling, and ADASYN, compared against each other.
-4. Models trained: Logistic Regression, Decision Tree, Random Forest, XGBoost, KNN, Naive Bayes.
-5. Evaluation using Precision, Recall, F1, F2, and confusion matrices rather than accuracy alone. F2 is reported alongside F1 since it weights recall more heavily, matching the project's priority of catching fraud over minimizing false alarms.
-6. Overfitting checks via train/test performance comparison for every tree-based model.
-7. Threshold tuning on the final model to adjust the precision-recall tradeoff.
-8. Error analysis on false negatives: comparing feature patterns between missed fraud cases and correctly caught fraud cases.
+2. Preprocessing: null and duplicate checks, RobustScaler applied to Time and Amount (chosen over StandardScaler for its lower sensitivity to outlier transactions), with V1-V28 passed through unchanged. All preprocessing is wrapped in a single `ColumnTransformer`, reused across every model via `Pipeline`, so every model is trained and evaluated on identical, consistently preprocessed data. Duplicate rows were deliberately not dropped, since a portion of them are fraud cases and removing them would shrink an already small minority class.
+3. Data split: stratified 80/20 train/test split, with a further 75/25 split of the training data into sub-training/validation sets, used specifically for threshold tuning without ever exposing the test set during tuning.
+4. Class imbalance handling: class weighting, SMOTE, undersampling, and ADASYN, compared against each other.
+5. Models trained: Logistic Regression, Decision Tree, Random Forest, XGBoost, KNN, Naive Bayes.
+6. Evaluation using Precision, Recall, F1, F2, and confusion matrices rather than accuracy alone. F2 is reported alongside F1 since it weights recall more heavily, matching the project's priority of catching fraud over minimizing false alarms.
+7. Overfitting checks via train/test performance comparison, always matched to the same decision threshold, for every candidate final model.
+8. Threshold tuning performed on a held-out validation split (not the test set), to avoid tuning against the same data used for final evaluation.
+9. Error analysis on false negatives: comparing feature patterns between missed fraud cases and correctly caught fraud cases.
 
 ## Results
 
-| Model | Precision (Fraud) | Recall (Fraud) | F1 (Fraud) | Accuracy |
+| Model | Precision (Fraud) | Recall (Fraud) | F1 (Fraud) | F2 (Fraud) |
 |---|---|---|---|---|
-| Logistic Regression + class weight | 0.56 | 0.82 | 0.67 | 0.9985 |
-| Logistic Regression + undersampling | 0.06 | 0.88 | 0.11 | 0.9750 |
-| Logistic Regression + SMOTE | 0.06 | 0.86 | 0.11 | 0.9760 |
-| XGBoost | 0.95 | 0.71 | 0.81 | 0.9994 |
-| Decision Tree | 0.86 | 0.71 | 0.78 | 0.9993 |
-| Random Forest (default threshold) | 0.95 | 0.76 | 0.84 | 0.9995 |
-| KNN | 0.91 | 0.70 | 0.79 | 0.9994 |
-| Naive Bayes | 0.06 | 0.80 | 0.11 | 0.9780 |
+| Logistic Regression + class weight | 0.56 | 0.82 | 0.67 | - |
+| SMOTE / undersampling / Naive Bayes | ~0.06-0.09 | 0.80-0.88 | ~0.11 | - |
+| XGBoost (default threshold) | 0.64 | 0.86 | 0.73 | - |
+| XGBoost (validation-tuned threshold = 0.90) | 0.85 | 0.83 | 0.84 | 0.83 |
+| Decision Tree | 0.86 | 0.71 | 0.78 | - |
+| Random Forest (default threshold) | 0.92 | 0.81 | 0.86 | - |
+| **Random Forest (validation-tuned threshold = 0.12)** | **0.69** | **0.88** | **0.77** | **0.83** |
+| Random Forest + SMOTE | 0.83 | 0.82 | 0.82 | - |
+| KNN | 0.91 | 0.70 | 0.79 | - |
 
-Aggressive rebalancing methods (SMOTE, undersampling, Naive Bayes) achieve high recall but collapse to a precision of about 0.06, meaning roughly 94% of their fraud alerts are false alarms. These are not usable in practice despite the high recall.
+Aggressive rebalancing methods (SMOTE, undersampling, Naive Bayes) achieve high recall but collapse to a precision in the range of 0.06-0.09, meaning the large majority of their fraud alerts are false alarms. These are not usable in practice despite the high recall.
 
-A hyperparameter search (RandomizedSearchCV) was also run on XGBoost. It reached a slightly higher test F1 (0.83) and F2 (0.81), but showed a large train-test performance gap (train F1 of 1.00 versus test F1 of 0.83), indicating overfitting. This result was excluded from final model selection for that reason, and is noted here as a check performed rather than a result relied on.
+Both XGBoost and Random Forest were tuned using a held-out validation split (not the test set) to select a classification threshold, then evaluated once on the untouched test set. On this basis, their F2-scores are close: XGBoost reaches 0.8316, Random Forest reaches 0.8333.
 
-**Final model: Random Forest, evaluated at a tuned threshold of 0.2** (rather than the default 0.5). Random Forest was chosen over XGBoost for its better precision-recall balance and a smaller, more consistent train-test gap across every threshold tested.
+**Final model: Random Forest, evaluated at a validation-tuned threshold of 0.12.** Although XGBoost's F2-score was nearly identical, XGBoost showed a large train-test gap (train recall of 1.00 versus test recall of 0.83, a 17-point gap), indicating overfitting. This pattern appeared consistently across multiple XGBoost tuning attempts in this project, including an earlier hyperparameter search. Random Forest, evaluated at the same threshold on both train and test data, showed a much smaller gap (F2 of 0.846 on train versus 0.833 on test), confirming it generalizes reliably. Given comparable performance, the model with the smaller overfitting gap was selected.
 
 ### Threshold Tuning
 
-The default classification threshold of 0.5 was compared against alternative thresholds:
+Thresholds were selected using a validation split carved out of the training data (not the test set), evaluated across a range of candidate values using F2 as the deciding metric, since missing a fraudulent transaction is generally costlier than a false alarm:
 
-| Threshold | Precision | Recall | F1 | F2 |
-|---|---|---|---|---|
-| 0.2 | 0.77 | 0.82 | 0.79 | 0.81 |
-| 0.3 | 0.83 | 0.80 | 0.82 | 0.81 |
-| 0.4 | 0.90 | 0.77 | 0.83 | 0.79 |
-| 0.5 (default) | 0.95 | 0.76 | 0.84 | 0.79 |
-| 0.6 | 0.98 | 0.69 | 0.81 | 0.73 |
+| Threshold | Precision | Recall | F2 |
+|---|---|---|---|
+| 0.05 | 0.67 | 0.81 | 0.78 |
+| 0.10 | 0.75 | 0.81 | 0.80 |
+| 0.12 (selected) | 0.78 | 0.81 | 0.80 |
+| 0.15 | 0.81 | 0.80 | 0.80 |
+| 0.20 | 0.82 | 0.79 | 0.79 |
+| 0.30 | 0.82 | 0.76 | 0.77 |
+| 0.50 | 0.92 | 0.70 | 0.73 |
 
-Since missing a fraudulent transaction is generally costlier than a false alarm, F2 (which weights recall more heavily than F1) was used as the deciding metric rather than F1. Threshold 0.2 gives the highest F2-score (0.81), narrowly ahead of 0.3 (0.81, rounding to the same value but slightly lower before rounding), and was selected on that basis. This improves recall from 0.76 to 0.82 relative to the default threshold, at a moderate precision cost (0.95 to 0.77).
+(Validation-set scores above; the final reported test-set performance at threshold 0.12 is precision 0.69, recall 0.88, F2 0.83.)
 
-Train-set performance at the same threshold (precision 0.86, recall 0.85, F1 0.86, F2 0.85) is close to the test-set result, confirming the model generalizes well rather than overfitting to the training data.
+Threshold 0.12 was selected on the validation set and then evaluated once on the test set, improving recall to 0.88 at a real precision cost (0.69). Train-set performance at this same threshold (precision 0.79, recall 0.86, F2 0.846) is close to the test-set result (F2 0.833), confirming this threshold choice does not introduce overfitting.
 
 ### Additional Experiments
 
-Undersampling and ADASYN were also tested as alternative imbalance-handling strategies. Both showed the same pattern as SMOTE: high recall but impractically low precision, and were not selected for the final model. 
-
-Error analysis of false negatives revealed that missed fraud cases are not near-miss transactions — the model assigns them very low fraud probability with high confidence. Comparing feature values between correctly caught fraud and missed fraud showed that missed cases lack the extreme values in key PCA components (V17, V14, V12, V10) that characterize easily detected fraud, suggesting these represent a distinct, subtler fraud pattern. Attempting to address this with ADASYN, which generates synthetic examples targeting hard-to-classify minority cases, did not improve results — precision dropped from 0.77 to 0.65 with no meaningful recall gain, suggesting these false negatives are not resolvable through resampling alone and may require additional features beyond what this anonymized dataset provides.
+Undersampling and ADASYN were also tested as alternative imbalance-handling strategies. Both showed the same pattern as SMOTE: high recall but impractically low precision, and were not selected for the final model. A false-negative analysis was also performed, comparing feature averages between missed fraud cases and correctly identified fraud cases, to understand what the model consistently struggles to detect.
 
 ## Limitations
 
-- Features V1 to V28 are anonymized PCA components, which limits interpretability of what specifically drives a fraud prediction. The final model uses 31 features in total: V1-V28, an engineered Hour-of-day feature, and scaled versions of Amount and Time.
+- Features V1 to V28 are anonymized PCA components, which limits interpretability of what specifically drives a fraud prediction. The final model uses 30 features in total: Time, Amount, and V1-V28.
 - The dataset covers only two days of transactions from 2013 European cardholders. Patterns may not generalize to other time periods or regions.
+- Error analysis showed that missed fraud cases (false negatives) are not near-miss transactions sitting just under the classification threshold; the model assigns them very low fraud probability with high confidence. These cases lack the extreme feature values that characterize easily detected fraud, suggesting a subtler fraud pattern that the available anonymized features may not fully capture. Attempting to address this with ADASYN, a resampling technique that targets hard-to-classify examples, did not improve results.
 
 ## Project Structure
 
 ```
 .
-├── notebook.ipynb        # Full analysis: EDA, preprocessing, modeling, evaluation
-├── app.py                 # Streamlit demo
-├── requirements.txt        # Python dependencies
+├── notebook.ipynb              # Full analysis: EDA, preprocessing, modeling, evaluation
+├── app.py                      # Streamlit demo
+├── fraud_model.pkl             # Saved model: a single Pipeline containing both preprocessing and the trained Random Forest
+├── sample_transactions.csv     # Synthetic sample file for trying the batch upload demo
+├── requirements.txt            # Python dependencies
 └── README.md
 ```
+
+The saved model is a single scikit-learn `Pipeline` object, combining the RobustScaler preprocessing step and the trained Random Forest together. This means the app only needs to load one file and can pass raw transaction data (Time, Amount, V1-V28) directly to it, with no manual feature scaling required in the application code.
 
 ## Running the Project
 

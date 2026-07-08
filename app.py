@@ -5,26 +5,28 @@ import joblib
 
 st.set_page_config(page_title="Credit Card Fraud Screening", layout="wide")
 
-# ---------- Load model and scaler ----------
+THRESHOLD_DEFAULT = 0.12  # selected during validation-based threshold tuning
+
+# ---------- Load model ----------
 @st.cache_resource
-def load_model_and_scaler():
-    model = joblib.load("fraud_model.pkl")
-    scaler = joblib.load("scaler.pkl")
-    return model, scaler
+def load_model():
+    # The saved pipeline includes both preprocessing (scaling) and the trained
+    # Random Forest model, so raw input columns can be passed directly.
+    return joblib.load("fraud_model.pkl")
 
-model, scaler = load_model_and_scaler()
+model = load_model()
 
-REQUIRED_COLUMNS = [f"V{i}" for i in range(1, 29)] + ["Time", "Amount"]
+REQUIRED_COLUMNS = ["Time"] + [f"V{i}" for i in range(1, 29)] + ["Amount"]
 
 # ---------- UI ----------
-st.title("Credit Card Fraud Detection")
+st.title("Credit Card Fraud Screening")
 st.write(
     "This demo uses a Random Forest model trained on the "
     "[Credit Card Fraud Detection dataset](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud) "
     "to screen credit card transactions for fraud."
 )
 
-tab_single, tab_batch = st.tabs(["Evaluate Transaction", "Upload a CSV File"])
+tab_single, tab_batch = st.tabs(["Generate Sample Transaction", "Upload a CSV File"])
 
 # =========================================================
 # TAB 1 — Single sample transaction, quick demo
@@ -33,9 +35,7 @@ with tab_single:
 
     @st.cache_data
     def load_full_dataset():
-        df = pd.read_csv("creditcard.csv")
-        df["Amount_log"] = np.log1p(df["Amount"])
-        return df
+        return pd.read_csv("creditcard.csv")
 
     try:
         full_df = load_full_dataset()
@@ -48,11 +48,11 @@ with tab_single:
     else:
         st.write("Click below to pull a random real transaction from the dataset, then check the model's prediction.")
 
-        if st.button("Evaluate Transaction"):
+        if st.button("Generate Sample Transaction"):
             row = full_df.sample(1)
             st.session_state["single_row"] = row
             st.session_state["single_row_id"] = int(row.index[0])
-            st.session_state.pop("single_prediction", None)  #clear old prediction on new sample
+            st.session_state.pop("single_prediction", None)  # clear old prediction on new sample
 
         if "single_row" in st.session_state:
             row = st.session_state["single_row"]
@@ -68,20 +68,13 @@ with tab_single:
                 st.metric("Hidden Features (V1-V28)", "Loaded")
 
             single_threshold = st.slider(
-                "Fraud probability threshold", 0.0, 1.0, 0.2, 0.01,
+                "Fraud probability threshold", 0.0, 1.0, THRESHOLD_DEFAULT, 0.01,
                 key="single_threshold",
-                help="Default is 0.2, the threshold selected during this project's threshold tuning to prioritize recall."
+                help="Default is 0.12, the threshold selected during this project's validation-based threshold tuning."
             )
 
             if st.button("Predict"):
-                row_processed = row.copy()
-                row_processed["Hour"] = (row_processed["Time"] % 86400) // 3600
-                row_processed[["Amount_scaled", "Time_scaled"]] = scaler.transform(
-                    row_processed[["Amount_log", "Time"]]
-                )
-                feature_cols = [f"V{i}" for i in range(1, 29)] + ["Hour", "Amount_scaled", "Time_scaled"]
-                X_row = row_processed[feature_cols]
-
+                X_row = row[REQUIRED_COLUMNS]
                 prob_fraud = model.predict_proba(X_row)[0][1]
                 prediction = "Fraud" if prob_fraud >= single_threshold else "Not Fraud"
                 confidence = prob_fraud if prediction == "Fraud" else (1 - prob_fraud)
@@ -108,7 +101,7 @@ with tab_single:
                 else:
                     st.error("Incorrect prediction.")
         else:
-            st.info("Click \"Evaluate Transaction\" to get started.")
+            st.info("Click \"Generate Sample Transaction\" to get started.")
 
 # =========================================================
 # TAB 2 — Batch CSV upload
@@ -116,7 +109,7 @@ with tab_single:
 with tab_batch:
     st.write(
         "Upload a batch of transactions to screen them for fraud. "
-        "The file must contain columns V1 through V28, Time, and Amount. "
+        "The file must contain columns Time, V1 through V28, and Amount. "
         "A Class column is optional; if included, the app will also show how well the model performed on your file."
     )
 
@@ -139,9 +132,9 @@ with tab_batch:
     uploaded_file = st.file_uploader("Upload a CSV file", type=["csv"])
 
     threshold = st.slider(
-        "Fraud probability threshold", 0.0, 1.0, 0.2, 0.01,
+        "Fraud probability threshold", 0.0, 1.0, THRESHOLD_DEFAULT, 0.01,
         key="batch_threshold",
-        help="Default is 0.2, the threshold selected during this project's threshold tuning to prioritize recall."
+        help="Default is 0.12, the threshold selected during this project's validation-based threshold tuning."
     )
 
     if uploaded_file is not None:
@@ -158,16 +151,9 @@ with tab_batch:
 
         has_labels = "Class" in data.columns
 
-        # ---------- Preprocess ----------
-        processed = data.copy()
-        processed["Amount_log"] = np.log1p(processed["Amount"])
-        processed["Hour"] = (processed["Time"] % 86400) // 3600
-        processed[["Amount_scaled", "Time_scaled"]] = scaler.transform(processed[["Amount_log", "Time"]])
-
-        feature_cols = [f"V{i}" for i in range(1, 29)] + ["Hour", "Amount_scaled", "Time_scaled"]
-        X_input = processed[feature_cols]
-
         # ---------- Predict ----------
+        # The saved pipeline handles scaling internally, so raw columns are passed directly.
+        X_input = data[REQUIRED_COLUMNS]
         probs = model.predict_proba(X_input)[:, 1]
         predictions = (probs >= threshold).astype(int)
 
@@ -221,7 +207,6 @@ with tab_batch:
         display_df = results[results["Prediction"] == "Fraud"] if show_only_flagged else results
         display_df = display_df.sort_values("Fraud_Probability", ascending=False)
 
-        # Put the meaningful columns first; V1-V28 are anonymized and not useful to read directly
         v_cols = [c for c in display_df.columns if c.startswith("V") and c[1:].isdigit()]
         front_cols = [c for c in ["Time", "Amount", "Fraud_Probability", "Prediction"] if c in display_df.columns]
         other_cols = [c for c in display_df.columns if c not in front_cols and c not in v_cols]
@@ -260,15 +245,16 @@ with tab_batch:
 # ---------- Model info ----------
 with st.expander("About the model"):
     st.write(
-        """
-        - **Model:** Random Forest (max_depth=10, min_samples_leaf=5)
-        - **Decision threshold:** 0.2 (tuned; default in scikit-learn is 0.5)
-        - **Test set F2-score:** 0.81
-        - **Test set Precision (Fraud):** 0.77
-        - **Test set Recall (Fraud):** 0.82
+        f"""
+        - **Model:** Random Forest (max_depth=10, min_samples_leaf=5), wrapped in a single
+          pipeline with a RobustScaler applied to Time and Amount.
+        - **Decision threshold:** {THRESHOLD_DEFAULT} (selected via validation-based threshold
+          tuning; scikit-learn's default is 0.5)
+        - **Test set F2-score:** 0.83
+        - **Test set Precision (Fraud):** 0.69
+        - **Test set Recall (Fraud):** 0.88
         - Trained on 284,807 transactions, with only about 0.17% labeled as fraud.
-        - Features V1 to V28 are anonymized PCA components; Amount and Time are log-transformed
-          and scaled before being passed to the model.
+        - Features: Time, Amount, and V1-V28 (anonymized PCA components).
         - The threshold was tuned to prioritize recall over precision, since missing a fraudulent
           transaction is generally costlier than a false alarm.
         """
