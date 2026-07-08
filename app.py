@@ -195,7 +195,7 @@ with tab_batch:
             st.write("Confusion Matrix")
             st.dataframe(cm_df)
 
-        # ---------- Results table ----------
+        #Results table
         st.subheader("Transaction Results")
 
         col_a, col_b = st.columns(2)
@@ -242,7 +242,7 @@ with tab_batch:
     else:
         st.info("Upload a CSV file to begin, or download the sample file above to try the app.")
 
-# ---------- Model info ----------
+#Model info
 with st.expander("About the model"):
     st.write(
         f"""
