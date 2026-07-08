@@ -19,7 +19,7 @@ model = load_model()
 REQUIRED_COLUMNS = ["Time"] + [f"V{i}" for i in range(1, 29)] + ["Amount"]
 
 # ---------- UI ----------
-st.title("Credit Card Fraud Screening")
+st.title("Credit Card Fraud Detection")
 st.write(
     "This demo uses a Random Forest model trained on the "
     "[Credit Card Fraud Detection dataset](https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud) "
@@ -48,7 +48,7 @@ with tab_single:
     else:
         st.write("Click below to pull a random real transaction from the dataset, then check the model's prediction.")
 
-        if st.button("Generate Sample Transaction"):
+        if st.button("Evaluate a Transaction"):
             row = full_df.sample(1)
             st.session_state["single_row"] = row
             st.session_state["single_row_id"] = int(row.index[0])
@@ -221,7 +221,7 @@ with tab_batch:
 
         def highlight_fraud(row):
             if row["Prediction"] == "Fraud":
-                return ["background-color: #7a1f2b; color: #ffffff"] * len(row)
+                return ["background-color: #d32f2f; color: #ffffff; font-weight: bold"] * len(row)
             return [""] * len(row)
 
         st.dataframe(
