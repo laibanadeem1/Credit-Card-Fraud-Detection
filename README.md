@@ -40,9 +40,9 @@ Accuracy is not a meaningful metric here. A model that predicts "Not Fraud" for 
 
 Aggressive rebalancing methods (SMOTE, undersampling, Naive Bayes) achieve high recall but collapse to a precision in the range of 0.06-0.09, meaning the large majority of their fraud alerts are false alarms. These are not usable in practice despite the high recall.
 
-Both XGBoost and Random Forest were tuned using a held-out validation split (not the test set) to select a classification threshold, then evaluated once on the untouched test set. On this basis, their F2-scores are close: XGBoost reaches 0.8316, Random Forest reaches 0.8333.
+Both XGBoost and Random Forest were tuned using a held-out validation split (not the test set) to select a classification threshold, then evaluated once on the untouched test set. Their validation-tuned F2 scores are very close in the current run, but XGBoost's tuned threshold showed a larger train-test gap and evidence of overfitting, while Random Forest remained more stable.
 
-**Final model: Random Forest, evaluated at a validation-tuned threshold of 0.12.** Although XGBoost's F2-score was nearly identical, XGBoost showed a large train-test gap (train recall of 1.00 versus test recall of 0.83, a 17-point gap), indicating overfitting. This pattern appeared consistently across multiple XGBoost tuning attempts in this project, including an earlier hyperparameter search. Random Forest, evaluated at the same threshold on both train and test data, showed a much smaller gap (F2 of 0.846 on train versus 0.833 on test), confirming it generalizes reliably. Given comparable performance, the model with the smaller overfitting gap was selected.
+**Final model: Random Forest, evaluated at a validation-tuned threshold of 0.12.** Although XGBoost achieved near-equal F2 performance after threshold tuning, XGBoost showed a larger train-test gap and signs of overfitting. Random Forest, evaluated at the same threshold on both train and test data, showed the smaller generalization gap, so it was selected as the final model.
 
 ### Threshold Tuning
 
@@ -60,7 +60,7 @@ Thresholds were selected using a validation split carved out of the training dat
 
 (Validation-set scores above; the final reported test-set performance at threshold 0.12 is precision 0.69, recall 0.88, F2 0.83.)
 
-Threshold 0.12 was selected on the validation set and then evaluated once on the test set, improving recall to 0.88 at a real precision cost (0.69). Train-set performance at this same threshold (precision 0.79, recall 0.86, F2 0.846) is close to the test-set result (F2 0.833), confirming this threshold choice does not introduce overfitting.
+Threshold 0.12 was selected on the validation set and then evaluated once on the test set, improving recall to 0.88 at a real precision cost (0.69). The train-set performance at this same threshold remains close to the test-set result, confirming that the selected threshold is stable and does not introduce overfitting for the chosen Random Forest model.
 
 ### Additional Experiments
 
