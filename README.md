@@ -24,17 +24,19 @@ Accuracy is not a meaningful metric here. A model that predicts "Not Fraud" for 
 
 ## Results
 
-| Model | Precision (Fraud) | Recall (Fraud) | F1 (Fraud) | F2 (Fraud) |
-|---|---|---|---|---|
-| Logistic Regression + class weight | 0.56 | 0.82 | 0.67 | - |
-| SMOTE / undersampling / Naive Bayes | ~0.06-0.09 | 0.80-0.88 | ~0.11 | - |
-| XGBoost (default threshold) | 0.64 | 0.86 | 0.73 | - |
-| XGBoost (validation-tuned threshold = 0.90) | 0.85 | 0.83 | 0.84 | 0.83 |
-| Decision Tree | 0.86 | 0.71 | 0.78 | - |
-| Random Forest (default threshold) | 0.92 | 0.81 | 0.86 | - |
-| **Random Forest (validation-tuned threshold = 0.12)** | **0.69** | **0.88** | **0.77** | **0.83** |
-| Random Forest + SMOTE | 0.83 | 0.82 | 0.82 | - |
-| KNN | 0.91 | 0.70 | 0.79 | - |
+| Model | Accuracy | Precision (Fraud) | Recall (Fraud) | F1 (Fraud) | F2 (Fraud) |
+|---|---|---|---|---|---|
+| XGBoost (default threshold) | 0.998 | 0.64 | 0.86 | 0.73 | 0.8031 |
+| XGBoost (validation-tuned threshold = 0.90) | 0.9994 | 0.85 | 0.83 | 0.84 | 0.83 |
+| Random Forest (default threshold) | 0.9995 | 0.92 | 0.81 | 0.86 | 0.8264 |
+| Random Forest (SMOTE) | 0.9994 | 0.83 | 0.82 | 0.82 | 0.8197 |
+| Random Forest (undersampled) | 0.9726 | 0.05 | 0.92 | 0.10 | 0.22 |
+| Random Forest (ADASYN) | 0.9993 | 0.74 | 0.88 | 0.80 | 0.8465 |
+| **Random Forest (validation-tuned threshold = 0.12)** | 1 | **0.69** | **0.88** | **0.77** | **0.83** |
+| Logistic Regression + class weight | 0.998 | 0.53 | 0.88 | 0.66 | - |
+| Decision Tree | 0.9993 | 0.79 | 0.78 | 0.78 | 0.7787 |
+| KNN | 0.9995 | 0.92 | 0.79 | 0.85 | 0.8088 |
+| Naive Bayes | 0.9764 | 0.06 | 0.85 | 0.11 | 0.2300 |
 
 Aggressive rebalancing methods (SMOTE, undersampling, Naive Bayes) achieve high recall but collapse to a precision in the range of 0.06-0.09, meaning the large majority of their fraud alerts are false alarms. These are not usable in practice despite the high recall.
 
