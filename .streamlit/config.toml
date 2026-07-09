@@ -1,0 +1,16 @@
+[theme]
+# The main background color
+backgroundColor = "#0e1117"
+
+# The background color for sidebars and secondary containers
+secondaryBackgroundColor = "#1e2127"
+
+# The primary accent color (used for buttons, sliders, and highlights)
+# We will use a stark, crisp white for maximum contrast
+primaryColor = "#ffffff"
+
+# The text color
+textColor = "#fafafa"
+
+# The font family
+font = "sans serif"
