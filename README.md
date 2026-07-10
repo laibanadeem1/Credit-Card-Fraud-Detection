@@ -66,6 +66,10 @@ Threshold 0.12 was selected on the validation set and then evaluated once on the
 
 Undersampling and ADASYN were also tested as alternative imbalance-handling strategies. Both showed the same pattern as SMOTE: high recall but impractically low precision, and were not selected for the final model. A false-negative analysis was also performed, comparing feature averages between missed fraud cases and correctly identified fraud cases, to understand what the model consistently struggles to detect.
 
+I suspected split-related memorization, tested it directly by checking for exact-duplicate leakage across splits, found real leakage (15 fraud rows). This was due to choosing not to drop duplicates because it was reducing the already small portion of the fraud class. At last, i went with dropping the duplicate rows
+<img width="485" height="103" alt="Screenshot 2026-07-10 144832" src="https://github.com/user-attachments/assets/51ac81ab-9342-4d20-8ea3-1cd8a76c13dd" />
+
+
 ## Limitations
 
 - Features V1 to V28 are anonymized PCA components, which limits interpretability of what specifically drives a fraud prediction. The final model uses 30 features in total: Time, Amount, and V1-V28.
