@@ -18,9 +18,7 @@ st.set_page_config(
 
 THRESHOLD_DEFAULT = 0.12  # selected during validation-based threshold tuning
 
-# =========================================================
 # THEME
-# =========================================================
 st.markdown("""
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
